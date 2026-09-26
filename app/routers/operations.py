@@ -128,6 +128,33 @@ def _operation_to_out(op: Operation) -> OperationOut:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# DELETE /operations/{id}
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.delete(
+    "/{operation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a DRAFT operation",
+)
+async def delete_operation(
+    operation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_any_staff),
+):
+    """Delete an operation. Only allowed if status is DRAFT."""
+    op = await _load_operation(db, operation_id)
+    if op.status != OperationStatus.DRAFT:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only DRAFT operations can be deleted.",
+        )
+    await db.delete(op)
+    await db.flush()
+    logger.info("Operation deleted: %s by %s", op.reference, current_user.email)
+    return
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # POST /operations/
 # ─────────────────────────────────────────────────────────────────────────────
 

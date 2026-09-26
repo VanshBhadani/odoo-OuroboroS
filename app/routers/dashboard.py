@@ -262,3 +262,31 @@ async def filter_operations(
     ]
 
     return PaginatedOperations(total=total, page=page, page_size=page_size, items=items)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /dashboard/locations (Bonus Endpoint for UI Dropdowns)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/locations",
+    summary="List all locations for UI dropdowns",
+)
+async def list_locations(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_any_staff),
+):
+    result = await db.execute(select(Location).where(Location.is_active.is_(True)))
+    locations = result.scalars().all()
+    return {
+        "items": [
+            {
+                "id": str(loc.id),
+                "name": loc.name,
+                "code": loc.code,
+                "location_type": loc.location_type,
+                "warehouse_id": str(loc.warehouse_id) if loc.warehouse_id else None,
+            }
+            for loc in locations
+        ]
+    }
