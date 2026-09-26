@@ -222,11 +222,7 @@ class User(Base):
     email = Column(String(256), nullable=False, unique=True, index=True)
     name = Column(String(256), nullable=False)
     hashed_password = Column(String(256), nullable=False)
-    role = Column(
-        Enum(UserRole, name="user_role_enum"),
-        nullable=False,
-        default=UserRole.WAREHOUSE_STAFF,
-    )
+    role = Column(String(256), nullable=False, default="WAREHOUSE_STAFF")
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, default=_utcnow

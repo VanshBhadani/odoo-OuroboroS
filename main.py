@@ -19,7 +19,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -46,10 +47,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     startup  → create tables + seed reference data.
     shutdown → dispose async SQLAlchemy engine pool gracefully.
+
+    NOTE: seed errors are non-fatal so the app (and Swagger UI) can still start
+    even when the database is temporarily unreachable.  The error is logged at
+    WARNING level and the application continues to run.
     """
     logger.info("StockSense starting up …")
-    await run_seed()
-    logger.info("StockSense is ready to serve requests.")
+    try:
+        await run_seed()
+        logger.info("StockSense is ready to serve requests.")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Startup seed failed (DB may be unreachable): %s – "
+            "the application will still start but database-backed endpoints may fail.",
+            exc,
+        )
 
     yield  # application runs here
 
@@ -76,7 +88,7 @@ app = FastAPI(
     version="1.0.0",
     contact={
         "name": "StockSense Engineering",
-        "email": "admin@stocksense.local",
+        "email": "admin@stocksense.dev",
     },
     license_info={"name": "MIT"},
     lifespan=lifespan,
@@ -89,7 +101,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production to known origins
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,10 +111,20 @@ app.add_middleware(
 # ─────────────────────────────────────────────────────────────────────────────
 # Global exception handlers
 # ─────────────────────────────────────────────────────────────────────────────
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch-all handler: log the full traceback and return a 500 response."""
+    """
+    Catch-all handler: log the full traceback and return a 500 response.
+
+    IMPORTANT: StarletteHTTPException and RequestValidationError are re-raised so that
+    FastAPI's own built-in handlers process them correctly.  Without this, those
+    exception types would be swallowed here and could corrupt schema generation
+    or hide validation errors behind a generic 500.
+    """
+    if isinstance(exc, (StarletteHTTPException, RequestValidationError)):
+        raise exc
     logger.exception("Unhandled exception on %s %s", request.method, request.url)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

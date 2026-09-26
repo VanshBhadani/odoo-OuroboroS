@@ -14,7 +14,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt as _bcrypt_lib
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +24,8 @@ from app.models import User, UserRole
 
 logger = logging.getLogger(__name__)
 
-# ── Bcrypt context ────────────────────────────────────────────────────────────
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# ── Bcrypt helpers (direct – bypasses passlib 1.7.4/bcrypt ≥4.x incompatibility) ──
+_BCRYPT_ROUNDS = 12
 
 bearer_scheme = HTTPBearer(auto_error=True)
 
@@ -35,13 +35,15 @@ bearer_scheme = HTTPBearer(auto_error=True)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def hash_password(plain: str) -> str:
-    """Return the bcrypt hash of *plain*."""
-    return _pwd_ctx.hash(plain)
+    """Return the bcrypt hash of *plain* (cost factor 12)."""
+    return _bcrypt_lib.hashpw(
+        plain.encode("utf-8"), _bcrypt_lib.gensalt(rounds=_BCRYPT_ROUNDS)
+    ).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Return True if *plain* matches *hashed*."""
-    return _pwd_ctx.verify(plain, hashed)
+    return _bcrypt_lib.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +134,7 @@ async def get_current_user(
     return user
 
 
-def require_role(*roles: UserRole):
+def require_role(*roles: str):
     """
     Factory that returns a FastAPI dependency enforcing one of *roles*.
 
@@ -140,7 +142,7 @@ def require_role(*roles: UserRole):
 
         @router.post("/sensitive")
         async def endpoint(
-            _: User = Depends(require_role(UserRole.INVENTORY_MANAGER))
+            _: User = Depends(require_role("INVENTORY_MANAGER"))
         ):
             ...
     """
@@ -151,7 +153,7 @@ def require_role(*roles: UserRole):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
                     f"Access denied. Required role(s): "
-                    f"{[r.value for r in roles]}"
+                    f"{[r for r in roles]}"
                 ),
             )
         return current_user
@@ -160,5 +162,5 @@ def require_role(*roles: UserRole):
 
 
 # Convenience pre-built role guards
-require_manager = require_role(UserRole.INVENTORY_MANAGER)
-require_any_staff = require_role(UserRole.INVENTORY_MANAGER, UserRole.WAREHOUSE_STAFF)
+require_manager = require_role("INVENTORY_MANAGER")
+require_any_staff = require_role("INVENTORY_MANAGER", "WAREHOUSE_STAFF")

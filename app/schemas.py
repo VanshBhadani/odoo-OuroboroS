@@ -34,11 +34,11 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     name: str = Field(min_length=1, max_length=256)
-    role: UserRole = UserRole.WAREHOUSE_STAFF
+    role: str = "WAREHOUSE_STAFF"
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
@@ -48,11 +48,11 @@ class TokenResponse(BaseModel):
 
 
 class OtpSendRequest(BaseModel):
-    email: EmailStr
+    email: str
 
 
 class OtpVerifyRequest(BaseModel):
-    email: EmailStr
+    email: str
     otp: str = Field(min_length=6, max_length=6)
     new_password: str = Field(min_length=8)
 
@@ -65,7 +65,7 @@ class UserOut(OrmBase):
     id: str
     email: str
     name: str
-    role: UserRole
+    role: str
     is_active: bool
     created_at: datetime
 

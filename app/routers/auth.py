@@ -106,7 +106,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> di
             detail="User account is deactivated.",
         )
 
-    token = create_access_token(subject=str(user.id), role=user.role.value)
+    token = create_access_token(subject=str(user.id), role=user.role)
     logger.info("User logged in: %s", user.email)
     return {"access_token": token, "token_type": "bearer"}
 
