@@ -1,0 +1,91 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import List, Dict
+
+from app.database import get_db
+from app.models import User, SystemSetting, Warehouse, Location, LocationType
+from app.security import require_manager, require_any_staff
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/settings", tags=["settings"])
+
+class SettingUpdate(BaseModel):
+    key: str
+    value: str
+
+class LocationCreate(BaseModel):
+    name: str
+    code: str
+    warehouse_id: str
+
+@router.get("/company")
+async def get_company_setting(db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(SystemSetting).where(SystemSetting.key == "company_name"))
+    setting = res.scalars().first()
+    return {"company_name": setting.value if setting else "StockSense Inc."}
+
+@router.post("/company")
+async def update_company_setting(
+    payload: SettingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    if payload.key != "company_name":
+        raise HTTPException(status_code=400, detail="Only company_name is supported here")
+    
+    res = await db.execute(select(SystemSetting).where(SystemSetting.key == "company_name"))
+    setting = res.scalars().first()
+    if setting:
+        setting.value = payload.value
+    else:
+        setting = SystemSetting(key="company_name", value=payload.value)
+        db.add(setting)
+    
+    await db.commit()
+    return {"message": "Updated"}
+
+@router.post("/locations")
+async def create_location(
+    payload: LocationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    res = await db.execute(select(Location).where(Location.code == payload.code))
+    if res.scalars().first():
+        raise HTTPException(status_code=400, detail="Location code already exists")
+    
+    loc = Location(
+        name=payload.name,
+        code=payload.code,
+        warehouse_id=payload.warehouse_id,
+        location_type=LocationType.INTERNAL
+    )
+    db.add(loc)
+    await db.commit()
+    await db.refresh(loc)
+    return loc
+
+@router.get("/warehouses")
+async def get_warehouses(db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(Warehouse))
+    warehouses = res.scalars().all()
+    return [{"id": str(w.id), "name": w.name, "code": w.code} for w in warehouses]
+
+@router.post("/warehouses")
+async def create_warehouse(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    name = payload.get("name")
+    code = payload.get("code")
+    res = await db.execute(select(Warehouse).where(Warehouse.code == code))
+    if res.scalars().first():
+        raise HTTPException(status_code=400, detail="Warehouse code already exists")
+        
+    wh = Warehouse(name=name, code=code)
+    db.add(wh)
+    await db.commit()
+    await db.refresh(wh)
+    return {"id": str(wh.id), "name": wh.name, "code": wh.code}

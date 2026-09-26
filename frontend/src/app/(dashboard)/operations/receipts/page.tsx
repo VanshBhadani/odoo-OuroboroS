@@ -12,18 +12,21 @@ export default function ReceiptsPage() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [companyName, setCompanyName] = useState('StockSense Inc.');
   const [isModalOpen, setModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [opsRes, prodRes, locRes] = await Promise.all([
+      const [opsRes, prodRes, locRes, compRes] = await Promise.all([
         api.get('/dashboard/filter?operation_type=RECEIPT'),
         api.get('/products/?page_size=100'),
-        api.get('/dashboard/locations')
+        api.get('/dashboard/locations'),
+        api.get('/settings/company').catch(() => ({ data: { company_name: 'StockSense Inc.' } }))
       ]);
       setOperations(opsRes.data.items);
       setProducts(prodRes.data.items);
       setLocations(locRes.data.items);
+      setCompanyName(compRes.data.company_name);
     } catch (err) {
       console.error(err);
     }
@@ -91,14 +94,17 @@ export default function ReceiptsPage() {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(30, 41, 59); // slate-800
-    doc.text('Goods Receipt', 14, 22);
+    doc.text(companyName, 14, 22);
+
+    doc.setFontSize(14);
+    doc.text('Goods Receipt', 14, 32);
     
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(`Reference: ${op.reference}`, 14, 32);
-    doc.text(`Date: ${new Date(op.validated_at || op.created_at).toLocaleString()}`, 14, 38);
-    doc.text(`Vendor: ${op.partner_name || 'N/A'}`, 14, 44);
-    doc.text(`Status: ${op.status}`, 14, 50);
+    doc.text(`Reference: ${op.reference}`, 14, 42);
+    doc.text(`Date: ${new Date(op.validated_at || op.created_at).toLocaleString()}`, 14, 48);
+    doc.text(`Vendor: ${op.partner_name || 'N/A'}`, 14, 54);
+    doc.text(`Status: ${op.status}`, 14, 60);
 
     // Prepare table data
     const tableData = op.lines.map((line: any) => {
@@ -112,7 +118,7 @@ export default function ReceiptsPage() {
     });
 
     autoTable(doc, {
-      startY: 60,
+      startY: 70,
       head: [['SKU', 'Product Name', 'Quantity', 'UOM']],
       body: tableData,
       theme: 'grid',

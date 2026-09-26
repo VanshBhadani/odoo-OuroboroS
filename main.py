@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.database import engine
-from app.routers import auth, dashboard, ledger, operations, products
+from app.routers import auth, dashboard, ledger, operations, products, settings
 from app.seed import run_seed
 
 # ── Logging configuration ─────────────────────────────────────────────────────
@@ -143,6 +143,7 @@ app.include_router(products.router, prefix=API_PREFIX)
 app.include_router(operations.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)
 app.include_router(ledger.router, prefix=API_PREFIX)
+app.include_router(settings.router, prefix=API_PREFIX)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

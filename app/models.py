@@ -212,6 +212,19 @@ class StockQuant(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SystemSetting (Key-Value pairs for config)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+    
+    key = Column(String(64), primary_key=True)
+    value = Column(String(256), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+# ─────────────────────────────────────────────────────────────────────────────
 # User
 # ─────────────────────────────────────────────────────────────────────────────
 
