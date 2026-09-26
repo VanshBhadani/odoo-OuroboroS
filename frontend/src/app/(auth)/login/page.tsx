@@ -5,22 +5,38 @@ import { useAuth } from '@/context/AuthContext';
 
 import Link from 'next/link';
 
+/**
+ * LoginPage Component
+ * 
+ * Provides the main authentication interface. Handles user credential
+ * submission, backend JWT validation, and context hydration upon success.
+ */
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAuth();
 
+  /**
+   * Submits credentials to the backend, retrieves the JWT, and 
+   * securely hydrates the global AuthContext with the user's profile.
+   */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 1. Authenticate and obtain JWT
       const res = await api.post('/auth/login', {
         email: email,
         password: password
       });
+      
+      // 2. Fetch full user profile using the fresh token
       const userRes = await api.get('/auth/me', { headers: { Authorization: `Bearer ${res.data.access_token}` } });
+      
+      // 3. Update global context (which handles the redirect to dashboard)
       login(res.data.access_token, userRes.data);
     } catch (err: any) {
+      // Parse FastAPI validation errors or 401 Unauthorized messages
       const detail = err.response?.data?.detail;
       setError(Array.isArray(detail) ? 'Validation Error: Check your inputs' : (detail || 'Login failed'));
     }
