@@ -162,5 +162,5 @@ def require_role(*roles: str):
 
 
 # Convenience pre-built role guards
-require_manager = require_role("INVENTORY_MANAGER")
-require_any_staff = require_role("INVENTORY_MANAGER", "WAREHOUSE_STAFF")
+require_manager = require_role("INVENTORY_MANAGER", "OWNER")
+require_any_staff = require_role("INVENTORY_MANAGER", "WAREHOUSE_STAFF", "OWNER", "ANALYST")

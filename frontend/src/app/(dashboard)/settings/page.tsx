@@ -20,10 +20,14 @@ export default function SettingsPage() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
 
+  const [members, setMembers] = useState<any[]>([]);
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+
   useEffect(() => {
     fetchCompany();
     fetchWarehouses();
     fetchLocations();
+    fetchMembers();
   }, []);
 
   const fetchCompany = async () => {
@@ -51,6 +55,15 @@ export default function SettingsPage() {
     try {
       const res = await api.get('/dashboard/locations');
       setLocations(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const res = await api.get('/settings/members');
+      setMembers(res.data);
     } catch (err) {
       console.error(err);
     }
@@ -103,6 +116,28 @@ export default function SettingsPage() {
       alert('Category Created!');
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Error creating category');
+    }
+  };
+
+  const addMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/settings/members', { email: newMemberEmail });
+      setNewMemberEmail('');
+      fetchMembers();
+      alert('Member added to allowlist!');
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Error adding member');
+    }
+  };
+
+  const removeMember = async (email: string) => {
+    if (!confirm(`Are you sure you want to remove ${email} from the allowlist?`)) return;
+    try {
+      await api.delete(`/settings/members/${email}`);
+      fetchMembers();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Error removing member');
     }
   };
 
@@ -197,6 +232,45 @@ export default function SettingsPage() {
               </div>
               <button type="submit" className="w-full bg-slate-800 text-white px-4 py-2 rounded font-medium hover:bg-slate-900">Create Category</button>
             </form>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden md:col-span-2">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <h2 className="font-semibold text-slate-800">Authorized Members (Allowlist)</h2>
+            <p className="text-xs text-slate-500 mt-1">Only emails listed here can register and log in to the application.</p>
+          </div>
+          <div className="p-6">
+            <form onSubmit={addMember} className="flex gap-4 mb-6">
+              <input required type="email" value={newMemberEmail} onChange={e=>setNewMemberEmail(e.target.value)} className="flex-1 border p-2 rounded outline-none" placeholder="new.member@gmail.com" />
+              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded font-medium hover:bg-blue-700">Add Member</button>
+            </form>
+
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="p-3 font-semibold text-slate-600">Email Address</th>
+                    <th className="p-3 font-semibold text-slate-600 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {members.map(m => (
+                    <tr key={m.email} className="hover:bg-slate-50">
+                      <td className="p-3 text-slate-800">{m.email}</td>
+                      <td className="p-3 text-right">
+                        <button onClick={() => removeMember(m.email)} className="text-red-600 hover:text-red-800 font-medium text-xs">Remove</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {members.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="p-4 text-center text-slate-500">No members in allowlist.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

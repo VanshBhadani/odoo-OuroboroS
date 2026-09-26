@@ -141,6 +141,12 @@ async def _seed_admin(db: AsyncSession) -> User:
             updated_at=datetime.now(timezone.utc),
         )
         db.add(admin)
+
+        from app.models import AllowlistEmail
+        allow_check = await db.execute(select(AllowlistEmail).where(AllowlistEmail.email == settings.ADMIN_EMAIL.lower()))
+        if not allow_check.scalars().first():
+            db.add(AllowlistEmail(email=settings.ADMIN_EMAIL.lower()))
+
         await db.flush()
         logger.info(
             "Seeded admin user: %s (role: %s)",

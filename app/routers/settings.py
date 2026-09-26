@@ -115,3 +115,51 @@ async def create_category(
     await db.commit()
     await db.refresh(cat)
     return {"id": str(cat.id), "name": cat.name, "description": cat.description}
+
+@router.get("/members")
+async def get_members(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_manager)):
+    from app.models import AllowlistEmail
+    res = await db.execute(select(AllowlistEmail))
+    members = res.scalars().all()
+    return [{"email": m.email, "created_at": m.created_at} for m in members]
+
+@router.post("/members")
+async def add_member(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    from app.models import AllowlistEmail
+    email = payload.get("email", "").lower().strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    
+    res = await db.execute(select(AllowlistEmail).where(AllowlistEmail.email == email))
+    if res.scalars().first():
+        raise HTTPException(status_code=400, detail="Email is already in the allowlist")
+        
+    member = AllowlistEmail(email=email)
+    db.add(member)
+    await db.commit()
+    return {"email": member.email}
+
+@router.delete("/members/{email}")
+async def remove_member(
+    email: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    from app.models import AllowlistEmail
+    # Prevent deleting own email or admin email (optional but good practice)
+    from app.config import settings
+    if email.lower() == settings.ADMIN_EMAIL.lower() or email.lower() == current_user.email.lower():
+        raise HTTPException(status_code=400, detail="Cannot remove admin or yourself")
+        
+    res = await db.execute(select(AllowlistEmail).where(AllowlistEmail.email == email.lower()))
+    member = res.scalars().first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Email not found in allowlist")
+        
+    await db.delete(member)
+    await db.commit()
+    return {"message": "Member removed"}

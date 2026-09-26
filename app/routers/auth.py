@@ -55,6 +55,15 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 )
 async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> User:
     """Create a new user.  Email must be unique."""
+    # Check allowlist
+    from app.models import AllowlistEmail
+    allowlist_check = await db.execute(select(AllowlistEmail).where(AllowlistEmail.email == payload.email.lower()))
+    if not allowlist_check.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your email is not authorized to register. Please contact the administrator."
+        )
+
     # Check duplicate email
     existing = await db.execute(
         select(User).where(User.email == payload.email.lower())

@@ -256,6 +256,19 @@ class User(Base):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Allowlist Email
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AllowlistEmail(Base):
+    __tablename__ = "allowlist_emails"
+
+    email = Column(String(256), primary_key=True, index=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # OTP Verification
 # ─────────────────────────────────────────────────────────────────────────────
 
