@@ -6,12 +6,15 @@ import { X, PackagePlus } from 'lucide-react';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   
   // Form State
   const [sku, setSku] = useState('');
   const [name, setName] = useState('');
   const [uom, setUom] = useState('Units');
+  const [categoryId, setCategoryId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchProducts = async () => {
@@ -23,26 +26,60 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/settings/categories');
+      setCategories(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+
+  const openCreateModal = () => {
+    setEditingProductId(null);
+    setSku('');
+    setName('');
+    setUom('Units');
+    setCategoryId('');
+    setModalOpen(true);
+  };
+
+  const openEditModal = (p: any) => {
+    setEditingProductId(p.id);
+    setSku(p.sku);
+    setName(p.name);
+    setUom(p.uom);
+    setCategoryId(p.category_id || '');
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/products/', {
+      const payload = {
         sku,
         name,
         uom,
+        category_id: categoryId || null,
         min_stock_alert: 0
-      });
+      };
+
+      if (editingProductId) {
+        await api.put(`/products/${editingProductId}`, payload);
+      } else {
+        await api.post('/products/', payload);
+      }
+      
       setModalOpen(false);
-      setSku('');
-      setName('');
       fetchProducts();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to create product');
+      alert(err.response?.data?.detail || 'Failed to save product');
     } finally {
       setSubmitting(false);
     }
@@ -52,7 +89,7 @@ export default function ProductsPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-slate-800">Products Catalog</h1>
-        <button onClick={() => setModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
+        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2">
           <PackagePlus size={18} /> New Product
         </button>
       </div>
@@ -65,6 +102,7 @@ export default function ProductsPage() {
               <th className="p-4 font-semibold uppercase tracking-wider text-xs">Name</th>
               <th className="p-4 font-semibold uppercase tracking-wider text-xs">Category</th>
               <th className="p-4 font-semibold uppercase tracking-wider text-xs text-right">Physical Stock</th>
+              <th className="p-4 font-semibold uppercase tracking-wider text-xs text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -76,8 +114,15 @@ export default function ProductsPage() {
                 <tr key={p.id} className="hover:bg-slate-50">
                   <td className="p-4 font-medium text-slate-900">{p.sku}</td>
                   <td className="p-4 text-slate-800">{p.name}</td>
-                  <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600">{p.category || 'Uncategorized'}</span></td>
+                  <td className="p-4">
+                    <span className="bg-slate-100 px-2 py-1 rounded text-xs text-slate-600">
+                      {categories.find(c => c.id === (p as any).category_id)?.name || 'Uncategorized'}
+                    </span>
+                  </td>
                   <td className="p-4 text-right font-semibold text-slate-700">{totalStock} {p.uom}</td>
+                  <td className="p-4 text-right">
+                    <button onClick={() => openEditModal(p)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
+                  </td>
                 </tr>
               );
             })}
@@ -96,7 +141,7 @@ export default function ProductsPage() {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-bold text-slate-800">Create New Product</h2>
+              <h2 className="text-xl font-bold text-slate-800">{editingProductId ? 'Edit Product' : 'Create New Product'}</h2>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -114,10 +159,19 @@ export default function ProductsPage() {
                   <input required type="text" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Units, kg, L" value={uom} onChange={e => setUom(e.target.value)} />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Category</label>
+                <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white">
+                  <option value="">Uncategorized</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id} className="text-slate-900 bg-white">{c.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded transition-colors">Cancel</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded shadow-sm disabled:opacity-50 transition-colors">
-                  {submitting ? 'Creating...' : 'Create Product'}
+                  {submitting ? 'Saving...' : (editingProductId ? 'Save Changes' : 'Create Product')}
                 </button>
               </div>
             </form>

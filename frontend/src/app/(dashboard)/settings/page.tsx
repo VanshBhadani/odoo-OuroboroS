@@ -17,6 +17,9 @@ export default function SettingsPage() {
   const [newLocCode, setNewLocCode] = useState('');
   const [selectedWhId, setSelectedWhId] = useState('');
 
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+
   useEffect(() => {
     fetchCompany();
     fetchWarehouses();
@@ -88,6 +91,18 @@ export default function SettingsPage() {
       alert('Location Created!');
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Error creating location');
+    }
+  };
+
+  const createCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/settings/categories', { name: newCatName, description: newCatDesc });
+      setNewCatName('');
+      setNewCatDesc('');
+      alert('Category Created!');
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Error creating category');
     }
   };
 
@@ -163,6 +178,24 @@ export default function SettingsPage() {
                 <input required type="text" value={newLocCode} onChange={e=>setNewLocCode(e.target.value)} className="w-full border p-2 rounded outline-none" placeholder="e.g. WH02/A5" />
               </div>
               <button type="submit" className="w-full bg-slate-800 text-white px-4 py-2 rounded font-medium hover:bg-slate-900">Create Location</button>
+            </form>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <h2 className="font-semibold text-slate-800">Add New Category</h2>
+          </div>
+          <div className="p-6">
+            <form onSubmit={createCategory} className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Category Name</label>
+                <input required type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} className="w-full border p-2 rounded outline-none" placeholder="e.g. Electronics" />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-600 mb-1">Description (Optional)</label>
+                <input type="text" value={newCatDesc} onChange={e=>setNewCatDesc(e.target.value)} className="w-full border p-2 rounded outline-none" placeholder="e.g. Gadgets and Devices" />
+              </div>
+              <button type="submit" className="w-full bg-slate-800 text-white px-4 py-2 rounded font-medium hover:bg-slate-900">Create Category</button>
             </form>
           </div>
         </div>

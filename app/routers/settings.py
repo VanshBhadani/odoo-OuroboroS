@@ -89,3 +89,29 @@ async def create_warehouse(
     await db.commit()
     await db.refresh(wh)
     return {"id": str(wh.id), "name": wh.name, "code": wh.code}
+
+@router.get("/categories")
+async def get_categories(db: AsyncSession = Depends(get_db)):
+    from app.models import Category
+    res = await db.execute(select(Category))
+    categories = res.scalars().all()
+    return [{"id": str(c.id), "name": c.name, "description": c.description} for c in categories]
+
+@router.post("/categories")
+async def create_category(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    from app.models import Category
+    name = payload.get("name")
+    desc = payload.get("description", "")
+    res = await db.execute(select(Category).where(Category.name == name))
+    if res.scalars().first():
+        raise HTTPException(status_code=400, detail="Category name already exists")
+        
+    cat = Category(name=name, description=desc)
+    db.add(cat)
+    await db.commit()
+    await db.refresh(cat)
+    return {"id": str(cat.id), "name": cat.name, "description": cat.description}

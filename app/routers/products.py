@@ -199,6 +199,11 @@ async def update_product(
 
     if payload.name is not None:
         product.name = payload.name
+    if payload.sku is not None and payload.sku != product.sku:
+        existing = await db.execute(select(Product).where(Product.sku == payload.sku))
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"A product with SKU '{payload.sku}' already exists.")
+        product.sku = payload.sku
     if payload.uom is not None:
         product.uom = payload.uom
     if payload.min_stock_alert is not None:

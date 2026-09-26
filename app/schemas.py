@@ -100,6 +100,7 @@ class ProductCreate(BaseModel):
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=256)
+    sku: Optional[str] = Field(default=None, min_length=1, max_length=64)
     uom: Optional[str] = Field(default=None, max_length=32)
     min_stock_alert: Optional[Decimal] = Field(default=None, ge=0)
     category_id: Optional[str] = None
