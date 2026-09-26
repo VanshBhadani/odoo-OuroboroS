@@ -1,115 +1,152 @@
-# StockSense – Backend Implementation Summary
+# 📦 StockSense
 
-## Files Written (15 total)
-
-| # | File | Purpose |
-|---|------|---------|
-| 1 | [`requirements.txt`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/requirements.txt) | Pinned deps for Python 3.10+ |
-| 2 | [`.env.example`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/.env.example) | Local PostgreSQL config template |
-| 3 | [`app/config.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/config.py) | Pydantic-settings singleton |
-| 4 | [`app/database.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/database.py) | Async engine + session + `get_db` dep |
-| 5 | [`app/models.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/models.py) | All ORM models + enums |
-| 6 | [`app/schemas.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/schemas.py) | Pydantic v2 request/response schemas |
-| 7 | [`app/security.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/security.py) | bcrypt + JWT + RBAC dependencies |
-| 8 | [`app/services/inventory.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/services/inventory.py) | **Core double-entry engine** |
-| 9 | [`app/routers/auth.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/routers/auth.py) | signup / login / OTP send+verify |
-| 10 | [`app/routers/products.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/routers/products.py) | Paginated CRUD + stock aggregation |
-| 11 | [`app/routers/operations.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/routers/operations.py) | Create / add lines / validate (ACID) |
-| 12 | [`app/routers/dashboard.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/routers/dashboard.py) | KPI aggregates + dynamic filter |
-| 13 | [`app/routers/ledger.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/routers/ledger.py) | Read-only audit log |
-| 14 | [`app/seed.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/app/seed.py) | Idempotent seeder + CLI entry |
-| 15 | [`main.py`](file:///c:/Users/aeshi/Desktop/StockSense/odoo-OuroboroS/main.py) | FastAPI app, lifespan, routers |
+An advanced, double-entry inventory management system built with FastAPI, PostgreSQL, and modern web technologies. Inspired by industry-standard systems like Odoo, StockSense ensures precise tracking of every product movement across warehouses, vendors, and customers with strict ACID compliance.
 
 ---
 
-## Quick Start
+## 🌟 Key Features
 
+- **Double-Entry Ledger System:** Every stock movement is tracked as a transfer between two locations (e.g., Vendor → Warehouse). Nothing is created or destroyed out of thin air.
+- **ACID Compliant Transactions:** Concurrency control prevents race conditions during stock validation, ensuring inventory counts are always mathematically perfectly balanced.
+- **Role-Based Access Control (RBAC):** Distinct permissions for `INVENTORY_MANAGER` and `STAFF`.
+- **PostgreSQL-Native OTP:** Password reset workflows handled entirely within PostgreSQL (no Redis required), featuring built-in brute-force protection and cooldowns.
+- **Dynamic KPI Dashboard:** Real-time metrics and dynamic filtering for actionable business insights.
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Framework:** FastAPI (Python 3.10+)
+- **Database:** PostgreSQL (Asyncpg)
+- **ORM:** SQLAlchemy 2.0 (Async)
+- **Data Validation:** Pydantic v2
+- **Authentication:** JWT (JSON Web Tokens) & bcrypt
+
+### Frontend
+- **Framework:** Next.js / React (TypeScript)
+- **Styling:** Tailwind CSS
+- **State Management:** React Context / Hooks
+
+---
+
+## 🚀 Step-by-Step Execution Guide
+
+### 1. Prerequisites
+Before starting, ensure you have the following installed on your machine:
+- **Python 3.10+**
+- **Node.js 18+** (for the frontend)
+- **PostgreSQL** running locally
+
+### 2. Backend Setup
+Navigate to the root directory (where `main.py` is located) and follow these steps:
+
+**Step A: Configure Environment Variables**
+Copy the template file and fill in your details:
 ```powershell
-# 1. Create your .env
-Copy-Item .env.example .env   # then edit DATABASE_URL, SECRET_KEY
+Copy-Item .env.example .env
+```
+Ensure you update the `DATABASE_URL` to match your local PostgreSQL credentials and set a secure `SECRET_KEY`.
 
-# 2. Create the PostgreSQL database
+**Step B: Prepare the Database**
+Create the database in PostgreSQL:
+```powershell
 psql -U postgres -c "CREATE DATABASE stocksense_db;"
+```
 
-# 3. Install dependencies (Python 3.10+)
+**Step C: Install Dependencies**
+Create a virtual environment (optional but recommended) and install packages:
+```powershell
 pip install -r requirements.txt
-
-# 4. Run the server (tables created + seeded automatically on startup)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open **http://localhost:8000/docs** for the interactive Swagger UI.
+**Step D: Run the Server**
+Launch the FastAPI backend. *Note: Tables and default seed data are automatically generated on the first startup!*
+```powershell
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+Visit **http://127.0.0.1:8000/docs** to interact with the API via Swagger UI.
+
+### 3. Frontend Setup (Next.js)
+Open a new terminal window, navigate to the `frontend/` directory, and run the development server:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+Visit **http://localhost:3000** to access the application UI.
 
 ---
 
-## Architecture Decisions
+## 🧠 Architecture Decisions
 
-### Double-Entry Ledger
-Every stock change moves quantity **between** two locations:
+### The Double-Entry Engine
+Every stock operation moves quantity **between** two distinct locations. This design guarantees an unbroken audit trail:
 
-| Operation | Source → Destination |
-|-----------|----------------------|
-| Receipt | `Virtual/Vendor` → `WH01/Stock` |
-| Delivery | `WH01/Stock` → `Virtual/Customer` |
-| Internal Transfer | `Internal A` → `Internal B` |
-| Adjustment (gain) | `Virtual/Inventory-Loss` → `Internal` |
-| Adjustment (loss) | `Internal` → `Virtual/Inventory-Loss` |
+| Operation Type | Source Location | Destination Location |
+|----------------|-----------------|----------------------|
+| **Receipt** | `Virtual/Vendor` | `WH01/Stock` |
+| **Delivery** | `WH01/Stock` | `Virtual/Customer` |
+| **Transfer** | `Internal A` | `Internal B` |
+| **Inventory Gain**| `Virtual/Inventory-Loss`| `Internal` |
+| **Inventory Loss**| `Internal` | `Virtual/Inventory-Loss`|
 
-### ACID & Concurrency
-- `validate` endpoint uses `db.begin_nested()` (savepoint) inside the outer session.
-- `StockQuant` rows are locked via `.with_for_update()` before any read-then-write.
-- `InsufficientStockException` triggers automatic savepoint rollback.
-
-### PostgreSQL-Native OTP (No Redis)
-- Stored in `otp_verifications` table with `expires_at` (indexed).
-- Cooldown enforced via SQL: `created_at > NOW() - interval '60 seconds'`.
-- Brute-force protection: `attempts` column incremented on failure; locked at ≥ 3.
-
-### RBAC
-Two roles enforced via reusable `Depends()` factories:
-- `require_manager` → `INVENTORY_MANAGER` only
-- `require_any_staff` → both roles
+### Handling Concurrency (ACID)
+When a stock operation is validated (e.g., shipping items out), the system must guarantee the stock isn't simultaneously allocated to another order.
+- The `validate` endpoint uses nested transactions `db.begin_nested()` (savepoints).
+- Rows in `StockQuant` are locked via `.with_for_update()` before reading.
+- If an `InsufficientStockException` is raised, the savepoint automatically rolls back.
 
 ---
 
-## API Endpoints
+## 📂 Backend Project Structure
 
-```
-POST  /api/v1/auth/signup
-POST  /api/v1/auth/login
-POST  /api/v1/auth/otp/send
-POST  /api/v1/auth/otp/verify-and-reset
-GET   /api/v1/auth/me
-
-GET   /api/v1/products/
-POST  /api/v1/products/
-PUT   /api/v1/products/{id}
-
-POST  /api/v1/operations/
-POST  /api/v1/operations/{id}/lines
-POST  /api/v1/operations/{id}/validate
-
-GET   /api/v1/dashboard/kpis
-GET   /api/v1/dashboard/filter
-
-GET   /api/v1/ledger/moves
-
-GET   /health
-```
+| File | Purpose |
+|------|---------|
+| `main.py` | FastAPI application entrypoint and lifespan events. |
+| `app/config.py` | Pydantic-settings singleton for strict environment validation. |
+| `app/database.py` | Async database engine, session maker, and dependencies. |
+| `app/models.py` | SQLAlchemy ORM models representing the schema. |
+| `app/schemas.py` | Pydantic v2 schemas for request and response validation. |
+| `app/security.py` | Utilities for password hashing, JWT signing, and RBAC dependencies. |
+| `app/seed.py` | Idempotent script that populates the DB with default data on startup. |
+| `app/services/inventory.py`| **The Core Engine** - validates and executes double-entry logic. |
+| `app/routers/*.py`| API endpoints separated by domain (auth, products, operations, etc). |
 
 ---
 
-## Seeded Data (auto-created on first startup)
+## 🔐 Default Seeded Data
 
-| Entity | Value |
-|--------|-------|
-| Warehouse | Main Warehouse (WH01) |
-| Location | WH01/Stock (INTERNAL) |
-| Location | Virtual/Vendor (VENDOR) |
-| Location | Virtual/Customer (CUSTOMER) |
-| Location | Virtual/Inventory-Loss (INVENTORY_LOSS) |
-| Category | General |
-| Admin user | admin@stocksense.local / Admin@123 |
+On the first successful startup, the system automatically creates foundational records:
 
-> [!IMPORTANT]
-> Change `ADMIN_PASSWORD` and `SECRET_KEY` in `.env` before any production deployment.
+**Default Administrator Account:**
+- **Email:** `admin@stocksense.local`
+- **Password:** `Admin@123`
+
+**Default Locations Created:**
+- Main Warehouse (`WH01`)
+- Internal Stock (`WH01/Stock`)
+- Vendor (`Virtual/Vendor`)
+- Customer (`Virtual/Customer`)
+- Inventory Loss (`Virtual/Inventory-Loss`)
+
+> **⚠️ Security Warning:** Change the `ADMIN_PASSWORD` and `SECRET_KEY` in your `.env` file before deploying to a production environment.
+
+---
+
+## 📡 Core API Endpoints
+
+**Authentication**
+- `POST /api/v1/auth/signup` - Register a new staff member.
+- `POST /api/v1/auth/login` - Authenticate and receive JWT.
+- `POST /api/v1/auth/otp/send` - Send password reset OTP.
+
+**Products & Inventory**
+- `GET /api/v1/products/` - Retrieve paginated list of products.
+- `POST /api/v1/products/` - Create a new product template.
+- `GET /api/v1/ledger/moves` - View the immutable double-entry ledger.
+
+**Operations**
+- `POST /api/v1/operations/` - Create a draft shipment or receipt.
+- `POST /api/v1/operations/{id}/lines` - Add products to the draft.
+- `POST /api/v1/operations/{id}/validate` - Execute and confirm the movement.
